@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import schema from '../schema.sql?raw';
 
 const Setup = () => {
   const navigate = useNavigate();
@@ -18,31 +19,45 @@ const Setup = () => {
   });
 
   const initializeDatabase = async (credentials: typeof formData) => {
-    const schemaResponse = await fetch('https://raw.githubusercontent.com/your-repo/bot-manager/main/src/schema.sql');
-    const schemaSQL = await schemaResponse.text();
-    
-    const response = await fetch(`http://${credentials.dbHost}:${credentials.dbPort}/init`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    try {
+      // Create a connection pool
+      const { Pool } = require('pg');
+      const pool = new Pool({
         host: credentials.dbHost,
-        port: credentials.dbPort,
+        port: parseInt(credentials.dbPort),
         database: credentials.dbName,
         user: credentials.dbUser,
         password: credentials.dbPassword,
-        schema: schemaSQL,
-        botToken: credentials.discordToken
-      })
-    });
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to initialize database');
+      // Execute schema
+      await pool.query(schema);
+
+      // Get bot info from Discord
+      const response = await fetch('https://discord.com/api/v10/users/@me', {
+        headers: {
+          'Authorization': `Bot ${credentials.discordToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch bot information from Discord');
+      }
+
+      const botInfo = await response.json();
+
+      // Insert bot into database
+      await pool.query(
+        'INSERT INTO bots (name, token, client_id) VALUES ($1, $2, $3)',
+        [botInfo.username, credentials.discordToken, botInfo.id]
+      );
+
+      await pool.end();
+      return { success: true };
+    } catch (error) {
+      console.error('Database initialization error:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    return data;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,7 +65,6 @@ const Setup = () => {
     setIsLoading(true);
     
     try {
-      // Initialize database and create bot entry
       await initializeDatabase(formData);
       
       // Store credentials in session storage
