@@ -20,6 +20,15 @@ const Setup = () => {
 
   const initializeDatabase = async (credentials: typeof formData) => {
     try {
+      console.log('Starting database initialization...');
+      console.log('Creating connection pool with credentials:', {
+        host: credentials.dbHost,
+        port: credentials.dbPort,
+        database: credentials.dbName,
+        user: credentials.dbUser,
+        // password omitted for security
+      });
+
       // Create a connection pool
       const { Pool } = require('pg');
       const pool = new Pool({
@@ -30,10 +39,19 @@ const Setup = () => {
         password: credentials.dbPassword,
       });
 
+      // Test connection
+      console.log('Testing database connection...');
+      await pool.query('SELECT NOW()');
+      console.log('Database connection successful!');
+
       // Execute schema
+      console.log('Executing database schema...');
+      console.log('Schema SQL:', schema); // Log the schema being executed
       await pool.query(schema);
+      console.log('Schema executed successfully!');
 
       // Get bot info from Discord
+      console.log('Fetching bot information from Discord API...');
       const response = await fetch('https://discord.com/api/v10/users/@me', {
         headers: {
           'Authorization': `Bot ${credentials.discordToken}`,
@@ -41,21 +59,40 @@ const Setup = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch bot information from Discord');
+        const errorText = await response.text();
+        console.error('Discord API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
+        throw new Error(`Failed to fetch bot information from Discord: ${response.status} ${response.statusText}`);
       }
 
       const botInfo = await response.json();
+      console.log('Bot information retrieved:', {
+        username: botInfo.username,
+        id: botInfo.id
+      });
 
       // Insert bot into database
+      console.log('Inserting bot information into database...');
       await pool.query(
         'INSERT INTO bots (name, token, client_id) VALUES ($1, $2, $3)',
         [botInfo.username, credentials.discordToken, botInfo.id]
       );
+      console.log('Bot information inserted successfully!');
 
       await pool.end();
+      console.log('Database connection closed.');
       return { success: true };
     } catch (error) {
       console.error('Database initialization error:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack
+        });
+      }
       throw error;
     }
   };
@@ -65,9 +102,11 @@ const Setup = () => {
     setIsLoading(true);
     
     try {
+      console.log('Starting setup process...');
       await initializeDatabase(formData);
       
       // Store credentials in session storage
+      console.log('Storing credentials in session storage...');
       window.sessionStorage.setItem('dbCredentials', JSON.stringify({
         host: formData.dbHost,
         port: formData.dbPort,
@@ -78,10 +117,15 @@ const Setup = () => {
       window.sessionStorage.setItem('discordToken', formData.discordToken);
       
       toast.success("Setup completed successfully!");
+      console.log('Setup completed successfully, navigating to dashboard...');
       navigate('/dashboard');
     } catch (error) {
       console.error('Setup error:', error);
-      toast.error("Failed to complete setup. Please check your credentials and try again.");
+      if (error instanceof Error) {
+        toast.error(`Setup failed: ${error.message}`);
+      } else {
+        toast.error("Failed to complete setup. Please check your credentials and try again.");
+      }
     } finally {
       setIsLoading(false);
     }
