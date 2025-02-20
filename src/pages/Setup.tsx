@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 const Setup = () => {
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     dbHost: "192.168.1.69",
     dbPort: "5452",
@@ -16,13 +17,43 @@ const Setup = () => {
     discordToken: "",
   });
 
+  const initializeDatabase = async (credentials: typeof formData) => {
+    const schemaResponse = await fetch('https://raw.githubusercontent.com/your-repo/bot-manager/main/src/schema.sql');
+    const schemaSQL = await schemaResponse.text();
+    
+    const response = await fetch(`http://${credentials.dbHost}:${credentials.dbPort}/init`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        host: credentials.dbHost,
+        port: credentials.dbPort,
+        database: credentials.dbName,
+        user: credentials.dbUser,
+        password: credentials.dbPassword,
+        schema: schemaSQL,
+        botToken: credentials.discordToken
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to initialize database');
+    }
+
+    const data = await response.json();
+    return data;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     
-    // Here we would normally test the connection
-    // For now, we'll just store in memory and proceed
     try {
-      // Store credentials in memory (temporary solution)
+      // Initialize database and create bot entry
+      await initializeDatabase(formData);
+      
+      // Store credentials in session storage
       window.sessionStorage.setItem('dbCredentials', JSON.stringify({
         host: formData.dbHost,
         port: formData.dbPort,
@@ -35,8 +66,10 @@ const Setup = () => {
       toast.success("Setup completed successfully!");
       navigate('/dashboard');
     } catch (error) {
-      toast.error("Failed to save credentials");
-      console.error(error);
+      console.error('Setup error:', error);
+      toast.error("Failed to complete setup. Please check your credentials and try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -57,24 +90,28 @@ const Setup = () => {
                 value={formData.dbHost}
                 onChange={(e) => setFormData({ ...formData, dbHost: e.target.value })}
                 required
+                disabled={isLoading}
               />
               <Input
                 placeholder="Port"
                 value={formData.dbPort}
                 onChange={(e) => setFormData({ ...formData, dbPort: e.target.value })}
                 required
+                disabled={isLoading}
               />
               <Input
                 placeholder="Database Name"
                 value={formData.dbName}
                 onChange={(e) => setFormData({ ...formData, dbName: e.target.value })}
                 required
+                disabled={isLoading}
               />
               <Input
                 placeholder="Username"
                 value={formData.dbUser}
                 onChange={(e) => setFormData({ ...formData, dbUser: e.target.value })}
                 required
+                disabled={isLoading}
               />
               <Input
                 type="password"
@@ -82,6 +119,7 @@ const Setup = () => {
                 value={formData.dbPassword}
                 onChange={(e) => setFormData({ ...formData, dbPassword: e.target.value })}
                 required
+                disabled={isLoading}
               />
             </div>
           </div>
@@ -94,11 +132,12 @@ const Setup = () => {
               value={formData.discordToken}
               onChange={(e) => setFormData({ ...formData, discordToken: e.target.value })}
               required
+              disabled={isLoading}
             />
           </div>
 
-          <Button type="submit" className="w-full">
-            Complete Setup
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Setting up..." : "Complete Setup"}
           </Button>
         </form>
       </div>
