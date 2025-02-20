@@ -12,8 +12,8 @@ export async function initializeDatabase(credentials: DatabaseCredentials) {
   try {
     console.log('Starting database initialization...');
     
-    // Make API call to backend setup endpoint
-    const response = await fetch('http://localhost:3000/api/setup', {
+    // Make API call to backend setup endpoint using relative path
+    const response = await fetch('/api/setup', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
