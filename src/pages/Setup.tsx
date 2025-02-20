@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import schema from '../schema.sql?raw';
+import pkg from 'pg';
+const { Pool } = pkg;
 
 const Setup = () => {
   const navigate = useNavigate();
@@ -30,7 +32,6 @@ const Setup = () => {
       });
 
       // Create a connection pool
-      const { Pool } = require('pg');
       const pool = new Pool({
         host: credentials.dbHost,
         port: parseInt(credentials.dbPort),
