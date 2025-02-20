@@ -8,10 +8,10 @@ import { toast } from "sonner";
 const Setup = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    dbHost: "",
-    dbPort: "5432",
-    dbName: "",
-    dbUser: "",
+    dbHost: "192.168.1.69",
+    dbPort: "5452",
+    dbName: "bot_manager",
+    dbUser: "bot_sys",
     dbPassword: "",
     discordToken: "",
   });
