@@ -53,6 +53,13 @@ const Setup = () => {
     }
   };
 
+  const handleFormDataChange = (newData: Partial<DatabaseCredentials>) => {
+    setFormData(currentData => ({
+      ...currentData,
+      ...newData
+    }));
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="w-full max-w-md p-6 space-y-6 glass-panel">
@@ -64,12 +71,12 @@ const Setup = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <DatabaseConfigForm
             formData={formData}
-            onChange={setFormData}
+            onChange={handleFormDataChange}
             isLoading={isLoading}
           />
           <DiscordConfigForm
             formData={formData}
-            onChange={setFormData}
+            onChange={handleFormDataChange}
             isLoading={isLoading}
           />
           <Button type="submit" className="w-full" disabled={isLoading}>
