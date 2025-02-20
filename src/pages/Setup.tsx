@@ -2,16 +2,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import schema from '../schema.sql?raw';
-import pkg from 'pg';
-const { Pool } = pkg;
+import { DatabaseConfigForm } from "@/components/setup/DatabaseConfigForm";
+import { DiscordConfigForm } from "@/components/setup/DiscordConfigForm";
+import { initializeDatabase, type DatabaseCredentials } from "@/services/database";
 
 const Setup = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<DatabaseCredentials>({
     dbHost: "192.168.1.69",
     dbPort: "5452",
     dbName: "bot_manager",
@@ -19,84 +18,6 @@ const Setup = () => {
     dbPassword: "",
     discordToken: "",
   });
-
-  const initializeDatabase = async (credentials: typeof formData) => {
-    try {
-      console.log('Starting database initialization...');
-      console.log('Creating connection pool with credentials:', {
-        host: credentials.dbHost,
-        port: credentials.dbPort,
-        database: credentials.dbName,
-        user: credentials.dbUser,
-        // password omitted for security
-      });
-
-      // Create a connection pool
-      const pool = new Pool({
-        host: credentials.dbHost,
-        port: parseInt(credentials.dbPort),
-        database: credentials.dbName,
-        user: credentials.dbUser,
-        password: credentials.dbPassword,
-      });
-
-      // Test connection
-      console.log('Testing database connection...');
-      await pool.query('SELECT NOW()');
-      console.log('Database connection successful!');
-
-      // Execute schema
-      console.log('Executing database schema...');
-      console.log('Schema SQL:', schema); // Log the schema being executed
-      await pool.query(schema);
-      console.log('Schema executed successfully!');
-
-      // Get bot info from Discord
-      console.log('Fetching bot information from Discord API...');
-      const response = await fetch('https://discord.com/api/v10/users/@me', {
-        headers: {
-          'Authorization': `Bot ${credentials.discordToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Discord API Error:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText
-        });
-        throw new Error(`Failed to fetch bot information from Discord: ${response.status} ${response.statusText}`);
-      }
-
-      const botInfo = await response.json();
-      console.log('Bot information retrieved:', {
-        username: botInfo.username,
-        id: botInfo.id
-      });
-
-      // Insert bot into database
-      console.log('Inserting bot information into database...');
-      await pool.query(
-        'INSERT INTO bots (name, token, client_id) VALUES ($1, $2, $3)',
-        [botInfo.username, credentials.discordToken, botInfo.id]
-      );
-      console.log('Bot information inserted successfully!');
-
-      await pool.end();
-      console.log('Database connection closed.');
-      return { success: true };
-    } catch (error) {
-      console.error('Database initialization error:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', {
-          message: error.message,
-          stack: error.stack
-        });
-      }
-      throw error;
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,60 +62,16 @@ const Setup = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Database Configuration</h2>
-            <div className="space-y-2">
-              <Input
-                placeholder="Database Host"
-                value={formData.dbHost}
-                onChange={(e) => setFormData({ ...formData, dbHost: e.target.value })}
-                required
-                disabled={isLoading}
-              />
-              <Input
-                placeholder="Port"
-                value={formData.dbPort}
-                onChange={(e) => setFormData({ ...formData, dbPort: e.target.value })}
-                required
-                disabled={isLoading}
-              />
-              <Input
-                placeholder="Database Name"
-                value={formData.dbName}
-                onChange={(e) => setFormData({ ...formData, dbName: e.target.value })}
-                required
-                disabled={isLoading}
-              />
-              <Input
-                placeholder="Username"
-                value={formData.dbUser}
-                onChange={(e) => setFormData({ ...formData, dbUser: e.target.value })}
-                required
-                disabled={isLoading}
-              />
-              <Input
-                type="password"
-                placeholder="Password"
-                value={formData.dbPassword}
-                onChange={(e) => setFormData({ ...formData, dbPassword: e.target.value })}
-                required
-                disabled={isLoading}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Discord Configuration</h2>
-            <Input
-              type="password"
-              placeholder="Discord Bot Token"
-              value={formData.discordToken}
-              onChange={(e) => setFormData({ ...formData, discordToken: e.target.value })}
-              required
-              disabled={isLoading}
-            />
-          </div>
-
+          <DatabaseConfigForm
+            formData={formData}
+            onChange={setFormData}
+            isLoading={isLoading}
+          />
+          <DiscordConfigForm
+            formData={formData}
+            onChange={setFormData}
+            isLoading={isLoading}
+          />
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Setting up..." : "Complete Setup"}
           </Button>
